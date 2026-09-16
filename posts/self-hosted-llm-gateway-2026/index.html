@@ -70,8 +70,9 @@
 </nav>
 
       <div class="post-content">
-        <h1 id="production-self-hosted-llm-gateway-litellm-vs-ollama-vs-vllm-vs-localai-2026-benchmark-tco-deployment-blueprint">Production Self-Hosted LLM Gateway: LiteLLM vs Ollama vs vLLM vs LocalAI (2026 Benchmark, TCO &amp; Deployment Blueprint) <a href="#production-self-hosted-llm-gateway-litellm-vs-ollama-vs-vllm-vs-localai-2026-benchmark-tco-deployment-blueprint" class="anchor-link" aria-hidden="true">#</a></h1>
-<blockquote><p><strong>Bottom Line:</strong> LiteLLM is a gateway (+2 ms median / +13 ms p99 at 1,170 RPS on 4 small instances); vLLM, Ollama and LocalAI are engines. On one A100-40GB with Llama-3.1-8B FP16, vLLM peaks at 793 tok/s / 80 ms p99 versus default Ollama at 41 tok/s / 673 ms p99 — a 19× gap that appears only under concurrency. A saturated single-H100 vLLM node serving Llama-3.3-70B FP8 costs $0.17–0.81 per 1M output tokens in GPU rent ($0.5–1.75 after a 3–5× ops multiplier), at or below hosted Llama-3.3-70B APIs ($0.10–1.04) and 12–60× below GPT-5 output ($10.00); the same node at 1 user costs $3.45–16.16 per 1M. Utilization, not engine choice, dominates TCO. Reference stack: LiteLLM → vLLM, with Prometheus, Postgres and Redis. No defensible LocalAI concurrency or CPU-only cost-per-token figure exists as of 2026-09-16.</p></blockquote>
+        <blockquote>
+  <p><strong>Bottom Line:</strong> LiteLLM is a gateway (+2 ms median / +13 ms p99 at 1,170 RPS on 4 small instances); vLLM, Ollama and LocalAI are engines. On one A100-40GB with Llama-3.1-8B FP16, vLLM peaks at 793 tok/s / 80 ms p99 versus default Ollama at 41 tok/s / 673 ms p99 — a 19× gap that appears only under concurrency. A saturated single-H100 vLLM node serving Llama-3.3-70B FP8 costs $0.17–0.81 per 1M output tokens in GPU rent ($0.5–1.75 after a 3–5× ops multiplier), at or below hosted Llama-3.3-70B APIs ($0.10–1.04) and 12–60× below GPT-5 output ($10.00); the same node at 1 user costs $3.45–16.16 per 1M. Utilization, not engine choice, dominates TCO. Reference stack: LiteLLM → vLLM, with Prometheus, Postgres and Redis. No defensible LocalAI concurrency or CPU-only cost-per-token figure exists as of 2026-09-16.</p>
+</blockquote>
 <h2 id="scope-and-method">Scope and method <a href="#scope-and-method" class="anchor-link" aria-hidden="true">#</a></h2>
 <p>Every figure below carries a source, hardware and date, compiled 2026-09-16, tagged <strong>[P]</strong> primary (vendor docs or method-disclosed benchmark), <strong>[S]</strong> secondary (aggregator, method not re-run) or <strong>[U]</strong> unverified (no primary source; caveated). Where sources conflict both values are shown. Derived cost figures are calculated from cited inputs and labelled as such.</p>
 <h3 id="the-four-tools-are-two-categories">The four tools are two categories <a href="#the-four-tools-are-two-categories" class="anchor-link" aria-hidden="true">#</a></h3>
@@ -129,7 +130,7 @@
   <li>Peak throughput: <strong>41 tok/s</strong> (derived ratio: 19.3× below vLLM's 793 tok/s).</li>
   <li>P99 latency at peak: <strong>673 ms</strong> (derived ratio: 8.4× vLLM's 80 ms).</li>
 </ul>
-<p>The gap is a configuration consequence, not only an engine one. Ollama's <code class="inline-code">OLLAMA<em>NUM</em>PARALLEL</code> defaults to 1 and queued requests are processed in FIFO order [P: Ollama FAQ]. Raising it narrows the gap, but memory scales linearly with parallel slots × context length [P: Ollama FAQ], and <strong>no primary benchmark of tuned Ollama at high concurrency was found [U]</strong> — the 19× figure applies to default settings only.</p>
+<p>The gap is a configuration consequence, not only an engine one. Ollama's <code class="inline-code">OLLAMA_NUM_PARALLEL</code> defaults to 1 and queued requests are processed in FIFO order [P: Ollama FAQ]. Raising it narrows the gap, but memory scales linearly with parallel slots × context length [P: Ollama FAQ], and <strong>no primary benchmark of tuned Ollama at high concurrency was found [U]</strong> — the 19× figure applies to default settings only.</p>
 <p>At a single user the picture inverts. Secondary sources report Ollama TTFT of ~45 ms versus vLLM ~82 ms on Llama-3.1-8B [S: Markaicode], and SitePoint's 2026 comparison puts Ollama 18% faster on single requests while vLLM delivers 2.3× the throughput at 8 concurrent [S]. At 50 concurrent, Markaicode measured Ollama plateauing at ~155 tok/s total with ~3,200 ms TTFT versus vLLM ~920 tok/s and ~145 ms TTFT [S — hardware undisclosed; prefer the Red Hat rows where both exist].</p>
 <h3 id="localai">LocalAI <a href="#localai" class="anchor-link" aria-hidden="true">#</a></h3>
 <p><strong>No independent, method-disclosed LocalAI server throughput or concurrency benchmark was found [U].</strong> LocalAI's default backend is llama.cpp and it can also load a vLLM backend [P: LocalAI features], so its ceiling is approximately the chosen backend's ceiling minus an unmeasured gRPC-hop overhead. The closest proxies are single-stream llama.cpp figures from Presenc AI (2026) [S]: 130–150 tok/s for 7B Q4 on an RTX 5090, 14–22 tok/s for 70B Q4 on the same card (offloaded, &gt;32 GB VRAM), 35–45 tok/s for 70B Q4 on a DGX Spark, and 95–110 tok/s for 7B Q4 on a Mac Studio M5 Max 128GB via MLX. None of these measures LocalAI itself; state any LocalAI throughput as "≈ backend performance, overhead unmeasured."</p>
@@ -259,7 +260,7 @@
 <h3 id="ollama">Ollama <a href="#ollama" class="anchor-link" aria-hidden="true">#</a></h3>
 <ul>
   <li>Advantage: fastest single-user TTFT in the set (~45 ms vs vLLM ~82 ms) [S], runs on CPU or GPU, MIT-licensed, zero stateful dependencies.</li>
-  <li>Drawback: 41 tok/s and 673 ms p99 at default config [P], 19× below vLLM on identical hardware; no server auth, port 11434 open by default [P]; <code class="inline-code">/metrics</code> unconfirmed [U]. Not suitable for shared traffic without a tuned <code class="inline-code">OLLAMA<em>NUM</em>PARALLEL</code> (memory grows linearly [P]) and an authenticating reverse proxy.</li>
+  <li>Drawback: 41 tok/s and 673 ms p99 at default config [P], 19× below vLLM on identical hardware; no server auth, port 11434 open by default [P]; <code class="inline-code">/metrics</code> unconfirmed [U]. Not suitable for shared traffic without a tuned <code class="inline-code">OLLAMA_NUM_PARALLEL</code> (memory grows linearly [P]) and an authenticating reverse proxy.</li>
 </ul>
 <h3 id="localai">LocalAI <a href="#localai" class="anchor-link" aria-hidden="true">#</a></h3>
 <ul>
@@ -287,7 +288,7 @@
 <p>GPU on-demand rates (verified 2026-08-20) [S]: H100 from $1.49/hr (Vast.ai floor) through $1.99 PCIe / $2.69 SXM community and $2.99 SXM5 Secure Cloud (RunPod), $3.99 (Lambda), $4.25 (CoreWeave), up to $6.98 (hyperscalers). A100 from $1.99/hr.</p>
 <p>API baselines, $ per 1M tokens (Sept 2026): Llama-3.3-70B cheapest listed $0.10 in / $0.32 out [S]; DeepInfra $0.23–0.40 blended [S]; Together serverless <strong>$0.54 (early 2026) or $1.04 flat (Sept 2026) — sources conflict, quote the range</strong> [S]; AWS Bedrock $0.72 flat [S]; Groq $0.59 in / $0.79 out, moved to enterprise-only on 2026-08-26 [S]. GPT-5 $1.25 in / $10.00 out; GPT-5-mini $0.25 / $2.00; GPT-5-nano $0.05 / $0.40 [P: OpenAI pricing, 2026-08-21].</p>
 <h3 id="derived-self-hosted-1m-output-tokens">Derived self-hosted $/1M output tokens <a href="#derived-self-hosted-1m-output-tokens" class="anchor-link" aria-hidden="true">#</a></h3>
-<p>Formula: <code class="inline-code">$/1M = hourly<em>rate ÷ (tok</em>per_s × 3600 ÷ 1e6)</code>. GPU rent only; these are calculations from the cited inputs, not published figures.</p>
+<p>Formula: <code class="inline-code">$/1M = hourly_rate ÷ (tok_per_s × 3600 ÷ 1e6)</code>. GPU rent only; these are calculations from the cited inputs, not published figures.</p>
 <div class="table-container">
   <table>
     <thead>
@@ -373,7 +374,7 @@
   <li>Set <code class="inline-code">--max-num-seqs</code> to the concurrency you have benchmarked (the Spheron curve suggests 50–100 on this card) [S]. vLLM has no rate limiting beyond this flag.</li>
   <li>Plan for a ~62 s cold start [S]: keep a warm standby or pre-pull weights before scaling events.</li>
   <li>Bind only to the private network. Verify the <code class="inline-code">--api-key</code>, quantization and tensor-parallel flags against <code class="inline-code">docs.vllm.ai</code> before launch — they were not confirmed on the fetched docs page [U].</li>
-  <li>For a small-model or CPU pool, run Ollama with <code class="inline-code">OLLAMA<em>NUM</em>PARALLEL</code> raised from its default of 1 [P]; memory scales linearly with slots × context [P]. Never expose port 11434 directly [P].</li>
+  <li>For a small-model or CPU pool, run Ollama with <code class="inline-code">OLLAMA_NUM_PARALLEL</code> raised from its default of 1 [P]; memory scales linearly with slots × context [P]. Never expose port 11434 directly [P].</li>
 </ul>
 <h3 id="step-2-gateway-tier">Step 2 — Gateway tier <a href="#step-2-gateway-tier" class="anchor-link" aria-hidden="true">#</a></h3>
 <ul>
